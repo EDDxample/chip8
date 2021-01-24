@@ -1,3 +1,9 @@
+use std::io::{stdout, Write};
+
+use termion:: {
+    raw::IntoRawMode,
+};
+
 
 pub struct Display {
     pixels: [[char; 64]; 32],
@@ -9,13 +15,19 @@ impl Display {
     }
 
     pub fn show(&mut self) {
-        println!("+----------------------------------------------------------------+");
+        let mut stdout = stdout().into_raw_mode().unwrap();
+        let mut screen = String::with_capacity((64+2+2)*(32+2));
         for line in self.pixels.iter() {
-            print!("|");
-            for pixel in line { print!("{}", pixel); }
-            println!("|");
+            screen += "|";
+            for pixel in line { screen.push(*pixel) }
+            screen += "|\n\r";
         }
-        println!("+----------------------------------------------------------------+");
+        write!(
+            stdout, "{}{}+----------------------------------------------------------------+\n\r{}+----------------------------------------------------------------+\n\r",
+            termion::clear::All,
+            termion::cursor::Goto(1,1),
+            screen,
+        );
     }
 
     pub fn set_pixel(&mut self, x: u8, y: u8, value: bool) {
