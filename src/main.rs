@@ -2,10 +2,9 @@ use std::fs::File;
 use std::thread::sleep;
 use std::time::Duration;
 
-use std::io:: { Error, ErrorKind, Read, stdout };
+use std::io:: { Error, Read, stdout };
 use termion:: {
     async_stdin,
-    AsyncReader,
     input::TermRead,
     raw::IntoRawMode,
 };
@@ -25,7 +24,6 @@ fn main() -> Result<(), Error> {
     let mut display = Display::new();
     let mut cpu = Chip8::new();
 
-    cpu.load_font();
     cpu.load_rom(buffer);
     
     
