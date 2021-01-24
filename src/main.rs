@@ -2,12 +2,8 @@ use std::fs::File;
 use std::thread::sleep;
 use std::time::Duration;
 
-use std::io:: { Error, Read, stdout };
-use termion:: {
-    async_stdin,
-    input::TermRead,
-    raw::IntoRawMode,
-};
+use std::io:: { Error, Read };
+use termion::async_stdin;
 
 mod keyboard; use keyboard::Keyboard;
 mod display; use display::Display;
@@ -33,8 +29,5 @@ fn main() -> Result<(), Error> {
         cpu.tick(state, &mut display);
         sleep(Duration::from_millis(1000/30));
     }
-
-
-    Ok(())
 }
 

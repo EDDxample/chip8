@@ -112,7 +112,7 @@ impl Chip8 {
 
         
         let old_shifts = false; // if true, sets VX = VY before shifting in 8XY6 and 8XYE opcodes
-        let old_BNNN = false; // if true, sets Jumps to NNN + the value of V0, otherwise it uses VX
+        let old_bnnn = false; // if true, sets Jumps to NNN + the value of V0, otherwise it uses VX
         let log = false; // prints stuff
 
 
@@ -226,7 +226,7 @@ impl Chip8 {
                 if (log) { println!("store address ${:03X} at register I", self.i) };
             }
             0xB000 => {
-                self.pc = addr + if old_BNNN { self.v[0] } else { self.v[x] } as u16;
+                self.pc = addr + if old_bnnn { self.v[0] } else { self.v[x] } as u16;
             }
             // VX = Random & NN
             0xC000 => {

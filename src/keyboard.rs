@@ -16,7 +16,7 @@ impl Keyboard {
     }
 
     pub fn tick(&mut self) -> Result<[bool; 16], Error> {
-        let stdout = stdout().into_raw_mode().unwrap();
+        let _stdout = stdout().into_raw_mode().unwrap();
         let mut state = [false; 16];
         
         loop { // loop until there are no valid keys
