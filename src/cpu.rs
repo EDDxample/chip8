@@ -3,7 +3,7 @@ use crate::display::Display;
 pub struct Chip8 {
 
     // Memory
-    //   $000 -> $1FF: Chip Logic
+    //   $000 -> $1FF: Chip logic
     //   $200 -> $FFF: Program Data
     ram: [u8; 4096], // 4kb
 
@@ -20,7 +20,8 @@ pub struct Chip8 {
     sound_timer: u8, // plays a beep
     delay_timer: u8, // pauses execution
 
-    pub paused: bool,
+    wait_for_key: bool,
+    key_reg: usize,
 }
 
 impl Chip8 {
@@ -35,7 +36,8 @@ impl Chip8 {
         
             sound_timer: 0,
             delay_timer: 0,
-            paused: false,
+            wait_for_key: false,
+            key_reg: 0,
         };
 
         temp.load_font();
@@ -43,7 +45,7 @@ impl Chip8 {
         temp
     }
 
-    // $000 -> $1FF: Chip Logic
+    // $000 -> $1FF: Chip logic
     // $200 -> $FFF: Program Data
     pub fn load_font(&mut self) {
         let font = [
@@ -83,18 +85,25 @@ impl Chip8 {
 
     pub fn tick(&mut self, kbd_state: [bool; 16], display: &mut Display) {
 
-        let halt_address = 0x3DC; // ibm: 0x228
-
         if self.pc as usize >= self.ram.len() {
             println!("out of bounds: ${:03X}", self.pc);
             return;
         }
 
-        if self.pc == halt_address {
-            // println!("halt!");
-            return;
+        if self.wait_for_key {
+            let mut key_pressed = false;
+            for i in 0..16 {
+                key_pressed = kbd_state[i];
+                if key_pressed {
+                    self.v[self.key_reg] = i as u8;
+                    break
+                }
+            }
+            if key_pressed {
+                self.wait_for_key = false;
+            } else { return }
         }
-
+        
         let opcode: u16 = self.get_opcode();
         // print!("${:03X}: {:04X} - ", self.pc, opcode);
         self.pc += 2;
@@ -120,19 +129,19 @@ impl Chip8 {
             0 => {
                 // clear screen
                 if opcode == 0x00E0 {
-                    if (log) { println!("clear screen") };
+                    if log { println!("clear screen") };
                     display.clear();
 
                 // return from subroutine
                 } else if opcode == 0x00EE {
                     self.stack_ptr -= 1;
                     self.pc = self.stack[self.stack_ptr as usize];
-                    if (log) { println!("return from subroutine to ${:03X} - {:?}", self.pc+2, self.stack) };
+                    if log { println!("return from subroutine to ${:03X} - {:?}", self.pc+2, self.stack) };
                 }
             },
             // JMP
             0x1000 => {
-                if (log) { println!("move pc to ${:03X}", addr) };
+                if log { println!("move pc to ${:03X}", addr) };
                 self.pc = addr;
             },
             // call subroutine
@@ -140,7 +149,7 @@ impl Chip8 {
                 self.stack[self.stack_ptr as usize] = self.pc;
                 self.stack_ptr += 1;
                 self.pc = addr;
-                if (log) { println!("move to subroutine at ${:03X} - {:?}", self.pc, self.stack) };
+                if log { println!("move to subroutine at ${:03X} - {:?}", self.pc, self.stack) };
             }
             // skip if VX == NN
             0x3000 => {
@@ -157,12 +166,12 @@ impl Chip8 {
             // set VX to NN
             0x6000 => {
                 self.v[x] = nn as u8;
-                if (log) { println!("set {} to register V{} - {:?}", nn, x, self.v) };
+                if log { println!("set {} to register V{} - {:?}", nn, x, self.v) };
             }
             // add NN to VX 
             0x7000 => {
                 self.v[x] = nn.overflowing_add(self.v[x]).0;
-                if (log) { println!("add {} to register V{} - {:?}", nn, x, self.v) };
+                if log { println!("add {} to register V{} - {:?}", nn, x, self.v) };
             }
             // arithmetic
             0x8000 => {
@@ -193,7 +202,7 @@ impl Chip8 {
                     }
                     // VX >>= 1       (VF is set to the deleted bit)
                     0x6 => {
-                        if (log) { println!("shifting! might need to change the old_shift flag to make it work properly") };
+                        if log { println!("shifting! might need to change the old_shift flag to make it work properly") };
                         if old_shifts { self.v[x] = self.v[y] }
                         self.v[0xF] = self.v[x] & 1;
                         self.v[x] >>= 1;
@@ -208,7 +217,7 @@ impl Chip8 {
                     }
                     // VX <<= 1       (VF is set to the deleted bit)
                     0xE => {
-                        if (log) { println!("shifting! might need to change the old_shift flag to make it work properly") };
+                        if log { println!("shifting! might need to change the old_shift flag to make it work properly") };
                         if old_shifts { self.v[x] = self.v[y] }
                         self.v[0xF] = self.v[x] >> 7 & 1;
                         self.v[x] <<= 1;
@@ -223,7 +232,7 @@ impl Chip8 {
             // set I to the address NNN
             0xA000 => {
                 self.i = addr;
-                if (log) { println!("store address ${:03X} at register I", self.i) };
+                if log { println!("store address ${:03X} at register I", self.i) };
             }
             0xB000 => {
                 self.pc = addr + if old_bnnn { self.v[0] } else { self.v[x] } as u16;
@@ -234,7 +243,7 @@ impl Chip8 {
             }
             // draw sprite of n bytes from address at I at display's vx vy
             0xD000 => {
-                if (log) { println!("draw from registers V{} V{} ({}, {}) sprite of {} bytes at I: ${:03X}", x, y, self.v[x], self.v[y], n, self.i) };
+                if log { println!("draw from registers V{} V{} ({}, {}) sprite of {} bytes at I: ${:03X}", x, y, self.v[x], self.v[y], n, self.i) };
                 
                 let pix_x = self.v[x];
                 let pix_y = self.v[y];
@@ -262,7 +271,39 @@ impl Chip8 {
 
             }
             0xF000 => {
-                
+                match nn {
+                    0x07 => { self.v[x] = self.delay_timer }
+                    0x0A => { self.wait_for_key = true; self.key_reg = x; } // halt until keypress
+                    0x15 => { self.delay_timer = self.v[x] }
+                    0x18 => { self.sound_timer = self.v[x] }
+                    0x1E => { self.i = self.i.overflowing_add(self.v[x] as u16).0; }
+                    0x29 => { self.i = 0x050 + (self.v[x] as u16) * 5 } // I = sprite_addr[Vx]
+                    0x33 => { // set_BCD(Vx);
+                        let vx = self.v[x];
+                        let mut digit = 100;
+                        // println!("==F {} 33==\nsaving {}", x, vx);
+                        for ii in 0..3 {
+                            self.ram[ii + self.i as usize] = ((vx / digit) % 10) as u8;
+                            digit /= 10;
+                        }
+                        // println!("{} {} {}", self.ram[self.i as usize + 0], self.ram[self.i as usize + 1], self.ram[self.i as usize + 2]);
+                    } 
+                    0x55 => { // reg_dump(Vx,&I)
+                        // println!("==F {} 55==\n{:?}", x, self.v);
+                        for ii in 0..x+1 {
+                            self.ram[ii + self.i as usize] = self.v[ii];
+                            // print!("{},", self.ram[ii + self.i as usize]);
+                        }
+                        // println!();
+
+                    }
+                    0x65 => { // reg_load(Vx,&I)
+                        for ii in 0..x+1 {
+                            self.v[ii] = self.ram[ii + self.i as usize];
+                        }
+                     } 
+                    _ => {  }
+                }
             }
             _ => { println!("  x  not implemented yet"); },
         }

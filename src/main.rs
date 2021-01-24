@@ -11,7 +11,8 @@ mod cpu; use cpu::Chip8;
 
 
 fn main() -> Result<(), Error> {
-    let mut f = File::open("roms/test_opcode.ch8").unwrap();
+    // let mut f = File::open("roms/test_opcode.ch8").unwrap();
+    let mut f = File::open("roms/ibm_logo.ch8").unwrap();
 
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer).unwrap();
@@ -22,12 +23,10 @@ fn main() -> Result<(), Error> {
 
     cpu.load_rom(buffer);
     
-    
-    
     loop {
         let state = keyboard.tick()?;
         cpu.tick(state, &mut display);
-        sleep(Duration::from_millis(1000/30));
+        sleep(Duration::from_millis(1000/60));
     }
 }
 
